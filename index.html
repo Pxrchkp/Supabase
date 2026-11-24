@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบลงทะเบียน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai+Looped:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><b>ระบบลงทะเบียน</b><div id="who" class="hide"><span id="whoName"></span> <button id="btnOut">ออกจากระบบ</button></div></header>
+<main>
+
+<!-- เข้าสู่ระบบ / สมัคร -->
+<section id="vAuth" class="card hide">
+  <div class="tabs"><button id="tLogin" class="on">เข้าสู่ระบบ</button><button id="tReg">ลงทะเบียน</button></div>
+  <div id="fReg" class="hide">
+    <label for="rName">ชื่อ-นามสกุล</label><input id="rName" autocomplete="name">
+    <div class="grid">
+      <div><label for="rPhone">เบอร์โทร</label><input id="rPhone" type="tel" autocomplete="tel"></div>
+      <div><label for="rBirth">วันเกิด</label><input id="rBirth" type="date"></div>
+    </div>
+    <label for="rAddr">ที่อยู่</label><textarea id="rAddr" rows="2"></textarea>
+  </div>
+  <label for="aEmail">อีเมล</label><input id="aEmail" type="email" autocomplete="email">
+  <label for="aPass">รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)</label><input id="aPass" type="password" autocomplete="current-password">
+  <div class="row"><button id="btnAuth" class="primary">เข้าสู่ระบบ</button></div>
+  <div id="authMsg" class="msg"></div>
+</section>
+
+<!-- โปรไฟล์ผู้ใช้ -->
+<section id="vProfile" class="card hide">
+  <h2>ข้อมูลที่ลงทะเบียนไว้</h2>
+  <label for="pEmail">อีเมล</label><input id="pEmail" disabled>
+  <label for="pName">ชื่อ-นามสกุล</label><input id="pName">
+  <div class="grid">
+    <div><label for="pPhone">เบอร์โทร</label><input id="pPhone" type="tel"></div>
+    <div><label for="pBirth">วันเกิด</label><input id="pBirth" type="date"></div>
+  </div>
+  <label for="pAddr">ที่อยู่</label><textarea id="pAddr" rows="2"></textarea>
+  <div class="row"><button id="btnSave" class="primary">บันทึกข้อมูล</button></div>
+  <div id="pMsg" class="msg"></div>
+</section>
+
+<!-- หลังบ้านแอดมิน -->
+<section id="vAdmin" class="card hide">
+  <h2>หลังบ้าน: รายชื่อผู้ลงทะเบียน (<span id="count">0</span>)</h2>
+  <input id="q" placeholder="ค้นหาชื่อ อีเมล หรือเบอร์โทร" aria-label="ค้นหา">
+  <div class="wrap" style="margin-top:12px"><table>
+    <thead><tr><th>ชื่อ-นามสกุล</th><th>อีเมล</th><th>เบอร์โทร</th><th>วันเกิด</th><th>ที่อยู่</th><th>สิทธิ์</th><th>สมัครเมื่อ</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+  <div id="aMsg" class="msg"></div>
+</section>
+</main>
+
+<dialog id="dlg">
+  <h2>แก้ไขข้อมูลผู้ใช้</h2>
+  <label for="eEmail">อีเมล</label><input id="eEmail" disabled>
+  <label for="eName">ชื่อ-นามสกุล</label><input id="eName">
+  <div class="grid">
+    <div><label for="ePhone">เบอร์โทร</label><input id="ePhone"></div>
+    <div><label for="eBirth">วันเกิด</label><input id="eBirth" type="date"></div>
+  </div>
+  <label for="eAddr">ที่อยู่</label><textarea id="eAddr" rows="2"></textarea>
+  <label for="eRole">สิทธิ์ (user / admin)</label><input id="eRole" list="roles"><datalist id="roles"><option value="user"><option value="admin"></datalist>
+  <div class="row"><button id="eSave" class="primary">บันทึกการแก้ไข</button><button id="eCancel">ยกเลิก</button><button id="eDel" class="danger" style="margin-left:auto">ลบผู้ใช้</button></div>
+  <div id="eMsg" class="msg"></div>
+</dialog>
+
+<script>
+// ===== ใส่ค่าจาก Supabase > Project Settings > API =====
+const SUPABASE_URL = "https://jmftepfozjnkauqwpvgc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_qeItFYk9tH1yl9Ck6GPWgg_5hytm5BT";
+// ======================================================
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+let mode = "login", me = null, all = [], editId = null;
+
+const say = (el, t, ok) => { el.textContent = t || ""; el.className = "msg " + (t ? (ok ? "ok" : "err") : ""); };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate = d => d ? new Date(d).toLocaleDateString("th-TH") : "-";
+
+function setMode(m){
+  mode = m;
+  $("tLogin").classList.toggle("on", m==="login"); $("tReg").classList.toggle("on", m==="reg");
+  $("fReg").classList.toggle("hide", m!=="reg");
+  $("btnAuth").textContent = m==="login" ? "เข้าสู่ระบบ" : "ลงทะเบียน";
+  $("aPass").autocomplete = m==="login" ? "current-password" : "new-password";
+  say($("authMsg"), "");
+}
+$("tLogin").onclick = () => setMode("login");
+$("tReg").onclick = () => setMode("reg");
+
+$("btnAuth").onclick = async () => {
+  const email = $("aEmail").value.trim(), password = $("aPass").value;
+  if (!email || password.length < 6) return say($("authMsg"), "กรอกอีเมลและรหัสผ่านอย่างน้อย 6 ตัวอักษร");
+  $("btnAuth").disabled = true;
+  let r;
+  if (mode === "login") r = await sb.auth.signInWithPassword({ email, password });
+  else {
+    if (!$("rName").value.trim()) { $("btnAuth").disabled = false; return say($("authMsg"), "กรอกชื่อ-นามสกุล"); }
+    let j = {};
+    try {
+      const res = await fetch(SUPABASE_URL + "/functions/v1/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ email, password,
+          full_name: $("rName").value.trim(), phone: $("rPhone").value.trim(),
+          birth_date: $("rBirth").value, address: $("rAddr").value.trim() })
+      });
+      j = await res.json().catch(() => ({}));
+      if (!res.ok) j.error = j.error || "สมัครไม่สำเร็จ (รหัส " + res.status + ")";
+    } catch (e) { j.error = "เชื่อมต่อฟังก์ชันสมัครไม่ได้: " + e.message; }
+    if (j.error) { $("btnAuth").disabled = false; return say($("authMsg"), "ไม่สำเร็จ: " + j.error); }
+    r = await sb.auth.signInWithPassword({ email, password });
+  }
+  $("btnAuth").disabled = false;
+  if (r.error) return say($("authMsg"), "ไม่สำเร็จ: " + r.error.message);
+  boot();
+};
+
+$("btnOut").onclick = async () => { await sb.auth.signOut(); boot(); };
+
+async function boot(){
+  const { data: { session } } = await sb.auth.getSession();
+  ["vAuth","vProfile","vAdmin","who"].forEach(i => $(i).classList.add("hide"));
+  if (!session) { $("vAuth").classList.remove("hide"); return; }
+  const { data, error } = await sb.from("profiles").select("*").eq("id", session.user.id).single();
+  if (error) { $("vAuth").classList.remove("hide"); return say($("authMsg"), "โหลดโปรไฟล์ไม่ได้: " + error.message); }
+  me = data;
+  $("who").classList.remove("hide"); $("whoName").textContent = me.full_name || me.email;
+  $("vProfile").classList.remove("hide");
+  $("pEmail").value = me.email || ""; $("pName").value = me.full_name || "";
+  $("pPhone").value = me.phone || ""; $("pBirth").value = me.birth_date || ""; $("pAddr").value = me.address || "";
+  if (me.role === "admin") { $("vAdmin").classList.remove("hide"); loadAll(); }
+}
+
+$("btnSave").onclick = async () => {
+  const { error } = await sb.from("profiles").update({
+    full_name: $("pName").value.trim(), phone: $("pPhone").value.trim(),
+    birth_date: $("pBirth").value || null, address: $("pAddr").value.trim() }).eq("id", me.id);
+  say($("pMsg"), error ? "บันทึกไม่สำเร็จ: " + error.message : "บันทึกข้อมูลแล้ว", !error);
+  if (!error) { $("whoName").textContent = $("pName").value.trim() || me.email; if (me.role==="admin") loadAll(); }
+};
+
+async function loadAll(){
+  const { data, error } = await sb.from("profiles").select("*").order("created_at", { ascending: false });
+  if (error) return say($("aMsg"), "โหลดรายชื่อไม่ได้: " + error.message);
+  all = data; render();
+}
+function render(){
+  const k = $("q").value.trim().toLowerCase();
+  const list = all.filter(p => !k || [p.full_name,p.email,p.phone].some(v => (v||"").toLowerCase().includes(k)));
+  $("count").textContent = list.length;
+  $("rows").innerHTML = list.length ? list.map(p => `<tr>
+    <td>${esc(p.full_name)||"-"}</td><td>${esc(p.email)}</td><td>${esc(p.phone)||"-"}</td>
+    <td>${fmtDate(p.birth_date)}</td><td class="addr">${esc(p.address)||"-"}</td>
+    <td><span class="badge ${p.role==="admin"?"admin":""}">${esc(p.role)}</span></td>
+    <td>${fmtDate(p.created_at)}</td><td><button data-id="${p.id}">แก้ไข</button></td></tr>`).join("")
+    : `<tr><td colspan="8">ไม่พบผู้ใช้ที่ตรงกับคำค้นหา</td></tr>`;
+}
+$("q").oninput = render;
+$("rows").onclick = e => {
+  const id = e.target.dataset.id; if (!id) return;
+  const p = all.find(x => x.id === id); editId = id;
+  $("eEmail").value = p.email||""; $("eName").value = p.full_name||""; $("ePhone").value = p.phone||"";
+  $("eBirth").value = p.birth_date||""; $("eAddr").value = p.address||""; $("eRole").value = p.role;
+  say($("eMsg"), ""); $("dlg").showModal();
+};
+$("eCancel").onclick = () => $("dlg").close();
+$("eSave").onclick = async () => {
+  const role = $("eRole").value.trim();
+  if (!["user","admin"].includes(role)) return say($("eMsg"), "สิทธิ์ต้องเป็น user หรือ admin");
+  const { error } = await sb.from("profiles").update({
+    full_name: $("eName").value.trim(), phone: $("ePhone").value.trim(),
+    birth_date: $("eBirth").value || null, address: $("eAddr").value.trim(), role }).eq("id", editId);
+  if (error) return say($("eMsg"), "บันทึกไม่สำเร็จ: " + error.message);
+  $("dlg").close(); say($("aMsg"), "บันทึกการแก้ไขแล้ว", true); loadAll();
+};
+$("eDel").onclick = async () => {
+  if (editId === me.id) return say($("eMsg"), "ลบบัญชีแอดมินที่กำลังใช้งานอยู่ไม่ได้");
+  if (!confirm("ลบข้อมูลโปรไฟล์ผู้ใช้นี้? (บัญชีล็อกอินยังอยู่ใน Authentication)")) return;
+  const { error } = await sb.from("profiles").delete().eq("id", editId);
+  if (error) return say($("eMsg"), "ลบไม่สำเร็จ: " + error.message);
+  $("dlg").close(); loadAll();
+};
+
+boot();
+</script>
+</body>
+</html>

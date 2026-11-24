@@ -1,0 +1,32 @@
+:root{--bg:#eef2f4;--card:#fff;--ink:#14232b;--mute:#5d6f78;--line:#d3dde2;--accent:#1f6f8b;--accent-ink:#fff;--danger:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#10191e;--card:#18252c;--ink:#e6eef1;--mute:#93a6af;--line:#2b3d46;--accent:#5bb3d0;--accent-ink:#08181e;--danger:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Noto Sans Thai Looped",system-ui,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line)}
+header b{font-size:18px}
+main{max-width:960px;margin:24px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px;margin-bottom:16px}
+h2{margin:0 0 14px;font-size:20px}
+label{display:block;font-size:14px;color:var(--mute);margin:12px 0 4px}
+input,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[disabled]{opacity:.6}
+button{font:inherit;cursor:pointer;border-radius:6px;padding:9px 16px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.danger{color:var(--danger)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.tabs{display:flex;gap:8px;margin-bottom:8px}
+.tabs button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.msg{margin-top:12px;font-size:14px;min-height:20px}
+.msg.err{color:var(--danger)}.msg.ok{color:var(--accent)}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td.addr{white-space:normal;min-width:160px}
+.badge{padding:2px 8px;border-radius:99px;border:1px solid var(--line);font-size:12px}
+.badge.admin{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);width:min(480px,92vw);padding:22px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.hide{display:none!important}
